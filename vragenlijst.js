@@ -561,8 +561,14 @@ class Vragenlijst extends HTMLElement {
 
     resetForm() {
         this.emailInput.value = '';
+        this.nameInput.value = '';
+        this.lastNameInput.value = '';
         this.emailInput.classList.remove('error');
+        this.nameInput.classList.remove('error');
+        this.lastNameInput.classList.remove('error');
         this.emailError.style.display = 'none';
+        this.nameError.style.display = 'none';
+        this.lastNameError.style.display = 'none';
 
         const radios = this.shadowRoot.querySelectorAll('input[type="radio"]');
         radios.forEach(radio => radio.checked = false);
@@ -615,10 +621,12 @@ class Vragenlijst extends HTMLElement {
                 padding: 32px;
             }
             .vragenlijst-title {
-                color: #1e1e1e;
+                color: ${accentColor};
                 margin: 0 0 8px 0;
                 text-align: center;
-                font-size: 28px;
+                font-family: "Lobster Two","fantasy";
+                color: #c4a127;
+                font-size: 32px;
                 font-weight: 400;
                 letter-spacing: 0;
                 line-height: 1.2;
@@ -666,12 +674,6 @@ class Vragenlijst extends HTMLElement {
                 height: 20px;
                 accent-color: ${accentColor};
                 margin: 0;
-            }
-            .vragenlijst-radio-option label {
-                font-size: 12px;
-                color: #666;
-                cursor: pointer;
-                font-weight: 500;
             }
             .vragenlijst-double {
                 display: flex;
@@ -740,34 +742,6 @@ class Vragenlijst extends HTMLElement {
                 cursor: default;
                 background: ${accentColor};
             }
-            .vragenlijst-restore-message {
-                background: #e8f0fe;
-                color: ${accentColor};
-                padding: 12px 16px;
-                border-radius: 16px;
-                margin-bottom: 24px;
-                text-align: center;
-                border: none;
-                font-size: 14px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 12px;
-            }
-            .vragenlijst-clear-storage {
-                background: ${accentColor}20;
-                color: ${accentColor};
-                border: none;
-                padding: 8px 16px;
-                border-radius: 100px;
-                cursor: pointer;
-                font-size: 13px;
-                font-weight: 500;
-                transition: background 0.2s;
-            }
-            .vragenlijst-clear-storage:hover {
-                background: ${accentColor}30;
-            }
             .vragenlijst-success-message {
                 background: #e8f5e9;
                 color: #1e4620;
@@ -815,23 +789,26 @@ class Vragenlijst extends HTMLElement {
                 .vragenlijst-radio-group {
                     gap: 4px;
                 }
-                .vragenlijst-radio-option {
-                    min-width: 40px;
+                .vragenlijst-question-text {
+                    max-width: 60%;
                 }
             }
             @media (max-width: 480px) {
                 .vragenlijst-radio-group {
                     justify-content: center;
                 }
-                .vragenlijst-restore-message {
-                    flex-direction: column;
-                    gap: 8px;
-                }
                 .vragenlijst-text-input-input {
                     padding: 14px;
                 }
                 .vragenlijst-submit-button {
                     padding: 14px 20px;
+                }
+                .vragenlijst-double {
+                    flex-direction: colom;
+                }
+                .vragenlijst-sub {
+                    margin-top: 12px;
+                    width: 90%;
                 }
             }
         `;
