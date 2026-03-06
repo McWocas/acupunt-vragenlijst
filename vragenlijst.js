@@ -15,6 +15,7 @@ class Vragenlijst extends HTMLElement {
         this.emailError = null;
         this._answers = [];
         this._appwriteLoaded = false;
+        this.sliders = [];
     }
 
     static STORAGE_PREFIX = 'vragenlijst_';
@@ -108,12 +109,13 @@ class Vragenlijst extends HTMLElement {
 
     loadFromStorage() {
         try {
-            const item = localStorage.getItem(Vragenlijst.STORAGE_PREFIX + this.vragenlijstId);
+            const key = Vragenlijst.STORAGE_PREFIX + this.vragenlijstId;
+            const item = localStorage.getItem(key);
             if (!item) return null;
 
             const parsed = JSON.parse(item);
             if (parsed.expires < Date.now()) {
-                clearStorage();
+                this.clearStorage();
                 return null;
             }
             return parsed.data;
@@ -148,11 +150,6 @@ class Vragenlijst extends HTMLElement {
 
             const savedData = this.loadFromStorage();
             this.renderVragenlijst(savedData);
-
-            /*
-            if (savedData && (savedData.answers || savedData.email)) {
-                this.showRestoreMessage(savedData);
-            }*/
 
             this.dispatchEvent(new CustomEvent('vragenlijst-loaded', {
                 detail: { vragenlijst: this.vragenlijstData }
@@ -206,11 +203,11 @@ class Vragenlijst extends HTMLElement {
             container.appendChild(this.createQuestionElement(
                 question, 
                 index, 
-                savedData?.answers ? savedData.answers[index] : null
+                savedData?.answers ? savedData.answers[index] : 3
             ));
         });
 
-        container.appendChild(this.createNameSection(savedData?.name, savedData?.lastName))
+        container.appendChild(this.createNameSection(savedData?.name, savedData?.lastName));
         container.appendChild(this.createEmailSection(savedData?.email));
         container.appendChild(this.createSubmitButton());
 
@@ -221,7 +218,7 @@ class Vragenlijst extends HTMLElement {
         this.attachSaveListeners();
     }
 
-    createQuestionElement(question, index, savedValue = null) {
+    createQuestionElement(question, index, savedValue = 3) {
         const container = document.createElement('div');
         container.className = 'vragenlijst-question';
         container.dataset.questionIndex = index;
@@ -231,30 +228,41 @@ class Vragenlijst extends HTMLElement {
         questionText.textContent = `${index + 1}. ${question}`;
         container.appendChild(questionText);
 
-        const radioGroup = document.createElement('div');
-        radioGroup.className = 'vragenlijst-radio-group';
+        const sliderContainer = document.createElement('div');
+        sliderContainer.className = 'vragenlijst-slider-container';
 
-        const labels = ['Zeer slecht', 'Slecht', 'Neutraal', 'Goed', 'Uitstekend'];
+        const labelRow = document.createElement('div');
+        labelRow.className = 'vragenlijst-slider-labels';
+        labelRow.innerHTML = `
+            <span class="label-left">Totaal niet</span>
+            <span class="label-center">Neutraal</span>
+            <span class="label-right">Totaal wel</span>
+        `;
+        sliderContainer.appendChild(labelRow);
 
-        for (let i = 1; i <= 5; i++) {
-            const option = document.createElement('div');
-            option.className = 'vragenlijst-radio-option';
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'vragenlijst-slider';
+        slider.min = '1';
+        slider.max = '5';
+        slider.value = savedValue;
+        slider.step = '1';
+        slider.dataset.questionIndex = index;
+        
+        slider.addEventListener('input', (e) => {
+            this.handleSliderInput(e);
+        });
 
-            const radio = document.createElement('input');
-            radio.type = 'radio';
-            radio.name = `question-${index}`;
-            radio.value = i;
-            radio.id = `q${index}-${i}`;
+        sliderContainer.appendChild(slider);
 
-            if (savedValue === i) {
-                radio.checked = true;
-            }
-            option.appendChild(radio);
-            radioGroup.appendChild(option);
-        }
+        this.sliders[index] = slider;
 
-        container.appendChild(radioGroup);
+        container.appendChild(sliderContainer);
         return container;
+    }
+
+    handleSliderInput(event) {
+        this.saveProgress();
     }
 
     createNameSection(savedName = null, savedLastName = null) {
@@ -296,7 +304,7 @@ class Vragenlijst extends HTMLElement {
         this.lastNameInput.className = 'vragenlijst-text-input-input';
         this.lastNameInput.setAttribute('aria-label', 'Achternaam');
 
-        if (savedName) {
+        if (savedLastName) {
             this.lastNameInput.value = savedLastName;
         }
 
@@ -349,15 +357,22 @@ class Vragenlijst extends HTMLElement {
     }
 
     attachSaveListeners() {
-        const radios = this.shadowRoot.querySelectorAll('input[type="radio"]');
-        radios.forEach(radio => {
-            radio.addEventListener('change', () => this.saveProgress());
-        });
-
         let emailTimeout;
         this.emailInput.addEventListener('input', () => {
             clearTimeout(emailTimeout);
             emailTimeout = setTimeout(() => this.saveProgress(), 500);
+        });
+
+        let nameTimeout;
+        this.nameInput.addEventListener('input', () => {
+            clearTimeout(nameTimeout);
+            nameTimeout = setTimeout(() => this.saveProgress(), 500);
+        });
+
+        let lastNameTimeout;
+        this.lastNameInput.addEventListener('input', () => {
+            clearTimeout(lastNameTimeout);
+            lastNameTimeout = setTimeout(() => this.saveProgress(), 500);
         });
     }
 
@@ -375,34 +390,12 @@ class Vragenlijst extends HTMLElement {
             lastSaved: Date.now()
         });
     }
- 
-    /*
-    showRestoreMessage(savedData) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'vragenlijst-restore-message';
-
-        let message = 'De antwoorden van een vorige sessie zijn gevonden';
-
-        messageDiv.innerHTML = `
-            ${message}
-            <button class="vragenlijst-clear-storage">Verwijder</button>
-        `;
-
-        const content = this.shadowRoot.querySelector('.vragenlijst-content');
-        content.insertBefore(messageDiv, content.firstChild);
-
-        messageDiv.querySelector('.vragenlijst-clear-storage').addEventListener('click', () => {
-            this.clearStorage();
-            messageDiv.remove();
-            this.resetForm();
-        });
-    }*/
 
     getAnswers() {
         const answers = [];
         for (let i = 0; i < this.vragen.length; i++) {
-            const radios = this.shadowRoot.querySelectorAll(`input[name="question-${i}"]:checked`);
-            answers.push(radios.length > 0 ? parseInt(radios[0].value) : null);
+            const slider = this.shadowRoot.querySelector(`.vragenlijst-slider[data-question-index="${i}"]`);
+            answers.push(slider ? parseInt(slider.value) : null);
         }
         return answers;
     }
@@ -413,11 +406,11 @@ class Vragenlijst extends HTMLElement {
             submitButton.disabled = true;
             submitButton.textContent = 'Verzenden...';
 
-            this.validateEmail();
-            this.validateName();
-            this.validateLastName();
+            const isEmailValid = this.validateEmail();
+            const isNameValid = this.validateName();
+            const isLastNameValid = this.validateLastName();
 
-            if (!this.validateEmail() && !this.validateName() && !this.validateLastName()) {
+            if (!isEmailValid || !isNameValid || !isLastNameValid) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Verzenden';
                 return;
@@ -426,7 +419,7 @@ class Vragenlijst extends HTMLElement {
             const answers = this.getAnswers();
             
             const unansweredIndexes = answers.reduce((acc, answer, index) => {
-                if (answer === null) acc.push(index + 1);
+                if (answer === null || answer === undefined) acc.push(index + 1);
                 return acc;
             }, []);
 
@@ -446,32 +439,31 @@ class Vragenlijst extends HTMLElement {
             };
             
             try {
-
                 const execution = await this.sdk.functions.createExecution(
                     '699eee510006c2160737',
                     JSON.stringify(antwoordData),
                     false,
                     '/',
                     this.sdk.execute
-                  );
+                );
+
+                this.clearStorage();
+                this.showSuccessMessage();
+                this.resetForm();
+
+                this.dispatchEvent(new CustomEvent('vragenlijst-submitted', {
+                    detail: { answers }
+                }));
 
             } catch (err) {
                 console.error("ERROR FULL OBJECT:", err);
+                throw new Error('Fout bij verzenden naar server');
             }
-
-            this.clearStorage();
-            this.showSuccessMessage();
-            this.resetForm();
-
-            this.dispatchEvent(new CustomEvent('vragenlijst-submitted', {
-                detail: { answers }
-            }));
 
         } catch (error) {
             console.error('Error submitting:', error);
             
             let errorMessage = 'Er is een fout opgetreden bij het verzenden. ';
-            
             errorMessage += error.message;
             alert(errorMessage);
             
@@ -570,8 +562,12 @@ class Vragenlijst extends HTMLElement {
         this.nameError.style.display = 'none';
         this.lastNameError.style.display = 'none';
 
-        const radios = this.shadowRoot.querySelectorAll('input[type="radio"]');
-        radios.forEach(radio => radio.checked = false);
+        const sliders = this.shadowRoot.querySelectorAll('.vragenlijst-slider');
+        sliders.forEach((slider) => {
+            slider.value = '3';
+        });
+
+        this.clearStorage();
     }
 
     showError(message) {
@@ -639,41 +635,84 @@ class Vragenlijst extends HTMLElement {
                 font-weight: 400;
             }
             .vragenlijst-question {
-                display: flex;
-                flex-wrap: wrap;
-                flex-direction: row;
-                justify-content: space-between;
-                padding: 16px;
+                padding: 20px;
                 margin-top: 16px;
                 background-color: #f8f9fa;
                 border-radius: 16px;
                 border-left: 4px solid ${accentColor};
+                display: flex;
+                justify-content: space-between;
+                flex-direction: row;
             }
             .vragenlijst-question-text {
                 color: #1e1e1e;
                 font-weight: 500;
                 font-size: 16px;
                 line-height: 1.5;
-                max-width: 70%;
+                width:60%;
             }
-            .vragenlijst-radio-group {
+            .vragenlijst-slider-container {
+                width: 40%;
                 display: flex;
-                gap: 8px;
-                justify-content: flex-start;
-                flex-wrap: wrap;
+                flex-direction: column;
             }
-            .vragenlijst-radio-option {
+            .vragenlijst-slider-labels {
                 display: flex;
-                align-items: center;
-                gap: 4px;
-                min-width: 24px;
+                justify-content: space-between;
+                margin: 0 4px 4px 4px;
+                font-size: 14px;
+                color: #666;
+                font-weight: 500;
+                gap: 12px;
             }
-            .vragenlijst-radio-option input[type="radio"] {
+            .label-left {
+                text-align: left;
+            }
+            .label-center {
+                text-align: center;
+            }
+            .label-right {
+                text-align: right;
+            }
+            .vragenlijst-slider {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 80%;
+                height: 10px;
+                background: #e0e0e0;
+                border-radius: 20px;
+                outline: none;
+                margin: 0;
                 cursor: pointer;
+                align-self: center;
+            }
+            .vragenlijst-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
                 width: 20px;
                 height: 20px;
-                accent-color: ${accentColor};
-                margin: 0;
+                background: ${accentColor};
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                transition: transform 0.1s;
+                border: 2px solid white;
+            }
+            .vragenlijst-slider::-webkit-slider-thumb:hover {
+                transform: scale(1.15);
+            }
+            .vragenlijst-slider::-moz-range-thumb {
+                width: 18px;
+                height: 18px;
+                background: ${accentColor};
+                border: 2px solid white;
+                border-radius: 50%;
+                cursor: pointer;
+            }
+            .vragenlijst-slider::-moz-range-track {
+                height: 4px;
+                background: #e0e0e0;
+                border-radius: 20px;
             }
             .vragenlijst-double {
                 display: flex;
@@ -736,6 +775,7 @@ class Vragenlijst extends HTMLElement {
                 text-transform: none;
                 letter-spacing: 0.1px;
                 line-height: 1;
+                margin-top: 16px;
             }
             .vragenlijst-submit-button:disabled {
                 opacity: 0.5;
@@ -784,31 +824,24 @@ class Vragenlijst extends HTMLElement {
                     font-size: 24px;
                 }
                 .vragenlijst-question {
-                    padding: 12px;
-                }
-                .vragenlijst-radio-group {
-                    gap: 4px;
-                }
-                .vragenlijst-question-text {
-                    max-width: 60%;
+                    padding: 16px;
                 }
             }
             @media (max-width: 450px) {
-                .vragenlijst-question {
-                    flex-direction: column;
-                }
-                .vragenlijst-radio-group {
-                    padding-top: 7px;
-                    justify-content: center;
-                }
                 .vragenlijst-text-input-input {
                     padding: 14px;
                 }
                 .vragenlijst-submit-button {
                     padding: 14px 20px;
                 }
+                .vragenlijst-question {
+                    flex-direction: column;
+                }
+                .vragenlijst-slider-container {
+                    width: 100%;
+                }
                 .vragenlijst-question-text {
-                    max-width: 90%;
+                    width:100%;
                 }
                 .vragenlijst-double {
                     flex-direction: column;
@@ -828,4 +861,4 @@ if (!customElements.get('vragen-lijst')) {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Vragenlijst;
-}   
+}
