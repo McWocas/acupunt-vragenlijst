@@ -136,7 +136,7 @@ class Vragenlijst extends HTMLElement {
             if (!this.vragenlijstId) {
                 throw new Error('vragenlijst-id attribute is required');
             }
-            await this.sdk.account.get()
+            
             const document = await this.sdk.databases.getRow(
                 'vragenlijst',
                 'vragenlijst',
@@ -459,7 +459,7 @@ class Vragenlijst extends HTMLElement {
                 console.error("ERROR FULL OBJECT:", err);
             }
 
-            //this.clearStorage();
+            this.clearStorage();
             this.showSuccessMessage();
             this.resetForm();
 
