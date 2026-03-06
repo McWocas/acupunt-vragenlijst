@@ -793,8 +793,12 @@ class Vragenlijst extends HTMLElement {
                     max-width: 60%;
                 }
             }
-            @media (max-width: 480px) {
+            @media (max-width: 450px) {
+                .vragenlijst-question {
+                    flex-direction: column;
+                }
                 .vragenlijst-radio-group {
+                    padding-top: 7px;
                     justify-content: center;
                 }
                 .vragenlijst-text-input-input {
@@ -803,12 +807,15 @@ class Vragenlijst extends HTMLElement {
                 .vragenlijst-submit-button {
                     padding: 14px 20px;
                 }
+                .vragenlijst-question-text {
+                    max-width: 90%;
+                }
                 .vragenlijst-double {
-                    flex-direction: colom;
+                    flex-direction: column;
                 }
                 .vragenlijst-sub {
                     margin-top: 12px;
-                    width: 90%;
+                    width: 100%;
                 }
             }
         `;
